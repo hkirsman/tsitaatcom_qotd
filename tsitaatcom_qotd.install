@@ -1,0 +1,26 @@
+<?php
+
+
+/**
+ * Implements hook_schema().
+ */
+function tsitaatcom_qotd_schema() {
+  $schema['tsitaatcom_qotd'] = array(
+    'description' => t('History of what quotes have allready been on Facebook'),
+    'fields' => array(
+      'id' => array(
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'quote_id' => array(
+        'description' => t('Quote node id'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('id'),
+  );
+  return $schema;
+}

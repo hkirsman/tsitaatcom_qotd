@@ -1,0 +1,251 @@
+<?php
+
+
+/**
+ * Implements hook_menu().
+ */
+function tsitaatcom_qotd_menu() {
+  $items = array();
+
+  $items['admin/config/tsitaatcom/quote_of_the_day'] = array(
+    'title' => 'Quote of the Day',
+    'description' => '',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('tsitaatcom_qotd_settings_form'),
+    'access arguments' => array('access administration pages'),
+    'file' => 'tsitaatcom_qotd.admin.inc',
+  );
+
+  $items['admin/config/tsitaatcom/quote_of_the_day/cron'] = array(
+    'title' => 'Quote of the Day',
+    'description' => '',
+    'page callback' => array('tsitaatcom_qotd_cron'),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK
+  );
+
+  return $items;
+}
+
+/**
+ * Menu hook for admin/config/tsitaatcom/quote_of_the_day/cron.
+ */
+function tsitaatcom_qotd_cron() {
+  print_r(_tsitaatcom_qotd_get_random_quote());
+}
+
+/**
+ * Get random quote not yet on Facebook.
+ * @return [type] [description]
+ */
+function _tsitaatcom_qotd_get_random_quote() {
+  //$query = db_select('node', 'n');
+  // Get only nodes of type quote.
+  //$query->condition('n.type', 'quote', '=');
+  // Get only active quotes.
+  //$query->condition('n.status', 1, '=');
+  // Get random result.
+  //$query->orderRandom();
+  // Show only 1 result.
+  //$query->range(0, 1);
+
+  // Join tsitaatcom_qotd table to filter only quotes that are not of Facebook yet.
+  //$query->leftJoin('tsitaatcom_qotd', 'tsitaatcom_qotd', 'n.nid = tsitaatcom_qotd.quote_id');
+  //$query->condition('tsitaatcom_qotd.quote_id', NULL, 'IS');
+
+  // Fields to select.
+  // $query->addField('n', 'nid', 'quote_nid');
+  // $query->addField('tsitaatcom_qotd', 'quote_id', 'tsitaatcom_qotd_quote_id');
+  // Fields.
+
+ $query = db_select('node', 'n');
+
+  // Basic conditions.
+  $query->condition('n.type', 'quote', '=');
+  $query->condition('n.status', 1, '=');
+  // Condition to only show ranked quotes.
+  $query->condition('field_quote_rank.field_q_rank_value', 2, '>');
+
+  // Joins.
+  $query->innerJoin('users', 'users', 'n.uid = users.uid');
+  $query->innerJoin('field_data_field_q_language_auto', 'field_q_language_auto', 'n.nid = field_q_language_auto.entity_id');
+  $query->innerJoin('field_data_field_q_quote', 'field_quote', "(n.nid = field_quote.entity_id AND field_quote.language = '" . language_default()->language . "')");
+  $query->innerJoin('field_data_field_q_rank', 'field_quote_rank', 'n.nid = field_quote_rank.entity_id');
+  // Category joins.
+  $query->innerJoin('field_data_field_q_category', 'field_category', 'n.nid = field_category.entity_id');
+    $query->innerJoin('taxonomy_term_data', 'taxonomy_term_data', 'field_category.field_q_category_tid = taxonomy_term_data.tid');
+  // Author joins.
+  $query->innerJoin('field_data_field_q_author', 'field_quote_author', 'n.nid = field_quote_author.entity_id');
+    $query->leftJoin('field_data_field_qa_firstname', 'field_qa_firstname', 'field_quote_author.field_q_author_target_id = field_qa_firstname.entity_id');
+    $query->leftJoin('field_data_field_qa_midname', 'field_qa_midname', 'field_quote_author.field_q_author_target_id = field_qa_midname.entity_id');
+    $query->innerJoin('field_data_field_qa_lastname', 'field_qa_lastname', 'field_quote_author.field_q_author_target_id = field_qa_lastname.entity_id');
+    $query->leftJoin('field_data_field_qa_name_freeform', 'field_qa_name_freeform', 'field_quote_author.field_q_author_target_id = field_qa_name_freeform.entity_id');
+    $query->leftJoin('field_data_field_qa_profession', 'field_qa_profession', 'field_quote_author.field_q_author_target_id = field_qa_profession.entity_id');
+    $query->leftJoin('field_data_field_qa_born_year', 'field_qa_born_year', 'field_quote_author.field_q_author_target_id = field_qa_born_year.entity_id');
+    $query->leftJoin('field_data_field_qa_born_year_circa', 'field_qa_born_year_circa', 'field_quote_author.field_q_author_target_id = field_qa_born_year_circa.entity_id');
+    $query->leftJoin('field_data_field_qa_death_year', 'field_qa_death_year', 'field_quote_author.field_q_author_target_id = field_qa_death_year.entity_id');
+    $query->leftJoin('field_data_field_qa_death_year_circa', 'field_qa_death_year_circa', 'field_quote_author.field_q_author_target_id = field_qa_death_year_circa.entity_id');
+    $query->innerJoin('field_data_field_qa_url_alias', 'field_qa_url_alias', 'field_quote_author.field_q_author_target_id = field_qa_url_alias.entity_id');
+  // Author portrait joins.
+  $query->leftJoin('field_data_field_qa_portrait_ref', 'field_qa_portrait_ref', 'field_quote_author.field_q_author_target_id = field_qa_portrait_ref.entity_id');
+    $query->leftJoin('field_data_field_qap_portrait', 'field_qap_portrait', 'field_qa_portrait_ref.field_qa_portrait_ref_target_id = field_qap_portrait.entity_id');
+  // Tag joins
+  $query->leftJoin('field_data_field_q_tag_auto', 'field_tag', 'n.nid = field_tag.entity_id');
+  // Source joins.
+  $query->leftJoin('field_data_field_q_source', 'field_q_source', 'n.nid = field_q_source.entity_id');
+    $query->leftJoin('field_data_field_qs_name', 'field_qs_name', 'field_q_source.field_q_source_target_id = field_qs_name.entity_id');
+    $query->leftJoin('field_data_field_q_source_title_xtra_prefix', 'field_q_source_title_xtra_prefix', 'n.nid = field_q_source_title_xtra_prefix.entity_id');
+    $query->leftJoin('field_data_field_q_source_title_xtra_suffix', 'field_q_source_title_xtra_suffix', 'n.nid = field_q_source_title_xtra_suffix.entity_id');
+    $query->leftJoin('field_data_field_qs_url_alias', 'field_qs_url_alias', 'field_q_source.field_q_source_target_id = field_qs_url_alias.entity_id');
+    $query->leftJoin('field_data_field_qs_source_year_start', 'field_qs_source_year_start', 'field_q_source.field_q_source_target_id = field_qs_source_year_start.entity_id');
+    $query->leftJoin('field_data_field_qs_source_year_start_circa', 'field_qs_source_year_start_circa', 'field_q_source.field_q_source_target_id = field_qs_source_year_start_circa.entity_id');
+    $query->leftJoin('field_data_field_qs_source_month_start', 'field_qs_source_month_start', 'field_q_source.field_q_source_target_id = field_qs_source_month_start.entity_id');
+    $query->leftJoin('field_data_field_qs_source_day_start', 'field_qs_source_day_start', 'field_q_source.field_q_source_target_id = field_qs_source_day_start.entity_id');
+    $query->leftJoin('field_data_field_qs_source_year_end', 'field_qs_source_year_end', 'field_q_source.field_q_source_target_id = field_qs_source_year_end.entity_id');
+    $query->leftJoin('field_data_field_qs_source_year_end_circa', 'field_qs_source_year_end_circa', 'field_q_source.field_q_source_target_id = field_qs_source_year_end_circa.entity_id');
+
+  // Fields.
+  $query->addField('n', 'nid', 'quote_nid');
+  $query->addField('n', 'uid');
+  $query->addField('users', 'name', 'username');
+  $query->addField('field_q_language_auto', 'field_q_language_auto_value', 'language');
+  $query->addField('field_quote', 'field_q_quote_value', 'quote');
+  $query->addField('field_quote_rank', 'field_q_rank_value', 'quote_rank');
+  $query->addField('taxonomy_term_data', 'name', 'quote_category');
+  // Author fields.
+  $query->addField('field_qa_firstname', 'field_qa_firstname_value', 'quote_author_firstname');
+    $query->addField('field_qa_midname', 'field_qa_midname_value', 'quote_author_midname');
+    $query->addField('field_qa_lastname', 'field_qa_lastname_value', 'quote_author_lastname');
+    $query->addField('field_qa_name_freeform', 'field_qa_name_freeform_value', 'quote_author_name_freeform');
+    $query->addField('field_qa_profession', 'field_qa_profession_value', 'quote_author_profession');
+    $query->addField('field_qa_born_year', 'field_qa_born_year_value', 'quote_author_born');
+    $query->addField('field_qa_born_year_circa', 'field_qa_born_year_circa_value', 'quote_author_born_circa');
+    $query->addField('field_qa_death_year', 'field_qa_death_year_value', 'quote_author_death');
+    $query->addField('field_qa_death_year_circa', 'field_qa_death_year_circa_value', 'quote_author_death_circa');
+    $query->addField('field_qa_url_alias', 'field_qa_url_alias_value', 'quote_author_urlfriendly_name');
+  // Author portrait fields.
+  $query->addField('field_qap_portrait', 'field_qap_portrait_width', 'quote_author_portrait_width');
+    $query->addField('field_qap_portrait', 'field_qap_portrait_height', 'quote_author_portrait_height');
+    $query->addField('field_qap_portrait', 'field_qap_portrait_fid', 'quote_author_portrait_fid');
+  // Tag field.
+  $query->addField('field_tag', 'field_q_tag_auto_value', 'tags');
+  // Source fields
+  $query->addField('field_q_source', 'field_q_source_target_id', 'field_q_source');
+    $query->addField('field_qs_name', 'field_qs_name_value', 'quote_source_name');
+    $query->addField('field_q_source_title_xtra_prefix', 'field_q_source_title_xtra_prefix_value', 'quote_source_name_xtra_prefix');
+    $query->addField('field_q_source_title_xtra_suffix', 'field_q_source_title_xtra_suffix_value', 'quote_source_name_xtra_suffix');
+    $query->addField('field_qs_url_alias', 'field_qs_url_alias_value', 'quote_source_url_friendly_name');
+    $query->addField('field_qs_source_year_start', 'field_qs_source_year_start_value', 'quote_source_year_start');
+    $query->addField('field_qs_source_year_start_circa', 'field_qs_source_year_start_circa_value', 'quote_source_year_start_circa');
+    $query->addField('field_qs_source_month_start', 'field_qs_source_month_start_value', 'quote_source_month_start');
+    $query->addField('field_qs_source_day_start', 'field_qs_source_day_start_value', 'quote_source_day_start');
+    $query->addField('field_qs_source_year_end', 'field_qs_source_year_end_value', 'quote_source_year_end');
+    $query->addField('field_qs_source_year_end_circa', 'field_qs_source_year_end_circa_value', 'quote_source_year_end_circa');
+
+  $query->range(0,1);
+  $query->orderRandom();
+
+  // print_r($query->__toString());
+
+  $result = $query->execute()->fetchAll(PDO::FETCH_ASSOC);
+  /*
+  foreach ($result as $row) {
+    print_r($row);
+  }*/
+
+  return $result;
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function tsitaatcom_qotd_block_info() {
+  $blocks = array();
+
+  $blocks['tsitaatcom_qotd_block_delta'] = array(
+    'info' => t('Quote of the Day'),
+    'cache' => DRUPAL_NO_CACHE,
+  );
+
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function tsitaatcom_qotd_block_view($delta = '') {
+  if (function_exists($delta . '_view')) {
+    return call_user_func($delta . '_view');
+  }
+}
+
+/**
+ * Block code to view tsitaatcom_qotd_block_delta
+ */
+function tsitaatcom_qotd_block_delta_view() {
+  $block = array('subject' => '', 'content' => '');
+
+  $block['content'] = _tsitaatcom_qotd_get_latest_quote_of_the_day();
+
+  return $block;
+}
+
+function _tsitaatcom_qotd_get_latest_quote_of_the_day() {
+  $out = '';
+
+  $result = db_query("SELECT quote_id FROM {tsitaatcom_qotd} ORDER BY id DESC LIMIT 1;");
+
+  if ($result) {
+    $quote_nid = $result->fetchAssoc();
+
+    $quotes = tsitaatcomQuote::get_quotes(array(
+      'quote_nid' => $quote_nid,
+    ));
+
+    $out = tsitaatcomQuote::get_quotes_render($quotes, array(
+      'disable_author_image' => TRUE,
+      'disable_quote_info' => TRUE,
+    ));
+  }
+
+  return $out;
+}
+
+/*
+$q = "
+SELECT
+  ".$config_q["db"]["prefix"]."quotes.id as quote_id,
+  ".$config_q["db"]["prefix"]."quotes.quote,
+  ".$config_q["db"]["prefix"]."quotes.rank,
+  ".$config_q["db"]["prefix"]."quotes.tag,
+  ".$config_q["db"]["prefix"]."quotes.author_id,
+  ".$config_q["db"]["prefix"]."quote_authors.author_name_freeform_".$config_q["locale"].",
+  ".$config_q["db"]["prefix"]."quote_authors.author_firstname_".$config_q["locale"].",
+  ".$config_q["db"]["prefix"]."quote_authors.author_midname_".$config_q["locale"].",
+  ".$config_q["db"]["prefix"]."quote_authors.author_lastname_".$config_q["locale"].",
+  ".$config_q["db"]["prefix"]."quote_authors.url_friendly_author_name_".$config_q["locale"]."
+FROM
+  ".$config_q["db"]["prefix"]."quotes,
+  ".$config_q["db"]["prefix"]."quote_authors
+WHERE
+  ".$config_q["db"]["prefix"]."quotes.id
+NOT IN
+(
+  SELECT
+    quote_id
+  FROM
+    ".$config_q["db"]["prefix"]."facebook_log
+)
+AND
+  rank > 1
+AND
+  ".$config_q["db"]["prefix"]."quotes.author_id = ".$config_q["db"]["prefix"]."quote_authors.id
+AND
+  ".$config_q["db"]["prefix"]."quotes.lang = '".$config_q["locale"]."'
+AND
+  ".$config_q["db"]["prefix"]."quote_authors.id != 571 */ /* Don't show Adolf Hitler */
+/*
+ORDER BY RAND()
+LIMIT 1
+";
+ */

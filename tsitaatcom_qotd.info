@@ -1,0 +1,6 @@
+name = Tsitaatcom Quote of the Day
+core = 7.x
+package = Tsitaat.com
+version = 7.x-2.0
+project = tsitaatcom
+dependencies[] = tsitaatcom
