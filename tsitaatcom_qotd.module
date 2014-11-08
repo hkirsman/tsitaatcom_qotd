@@ -1,5 +1,9 @@
 <?php
 
+/**
+ * @file
+ * Main file for tsitaatcom quote of the day module.
+ */
 
 /**
  * Implements hook_menu().
@@ -7,37 +11,40 @@
 function tsitaatcom_qotd_menu() {
   $items = array();
 
-  $items['admin/config/tsitaatcom/quote_of_the_day'] = array(
+  $items['admin/config/tsitaatcom/quote-of-the-day'] = array(
     'title' => 'Quote of the Day',
     'description' => '',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('tsitaatcom_qotd_settings_form'),
     'access arguments' => array('access administration pages'),
     'file' => 'tsitaatcom_qotd.admin.inc',
+    'type' => MENU_LOCAL_TASK,
   );
 
-  $items['admin/config/tsitaatcom/quote_of_the_day/cron'] = array(
+  $items['tsitaatcom-qotd-quote-of-the-day-cron'] = array(
     'title' => 'Quote of the Day',
     'description' => '',
     'page callback' => array('tsitaatcom_qotd_cron'),
     'access callback' => TRUE,
-    'type' => MENU_CALLBACK
+    'type' => MENU_CALLBACK,
   );
 
   return $items;
 }
 
 /**
- * Menu hook for admin/config/tsitaatcom/quote_of_the_day/cron.
+ * Menu hook for tsitaatcom-qotd-quote-of-the-day-cron.
  */
 function tsitaatcom_qotd_cron() {
-  $random_quote = _tsitaatcom_qotd_set_quote_of_the_day();
-  print_r($random_quote);
+  $quote = _tsitaatcom_qotd_set_quote_of_the_day();
+  _tsitaatcom_qotd_post_qotd_to_facebook($quote[0]);
+  _tsitaatcom_qotd_post_qotd_to_twitter($quote[0]);
 }
 
 /**
- * Get random quote not yet on Facebook.
- * @return array Quote
+ * Get random quote that is not yet been a quote of the day.
+ * @return array
+ *   Quote
  */
 function _tsitaatcom_qotd_set_quote_of_the_day() {
   // Build the initial query.
@@ -48,7 +55,8 @@ function _tsitaatcom_qotd_set_quote_of_the_day() {
     ),
   ));
 
-  // Get all quotes that are not in tsitaatcom_qotd table (aka not chosen as quote of the day yet).
+  // Get all quotes that are not in tsitaatcom_qotd table (aka not chosen as
+  // quote of the day yet).
   $query->leftJoin('tsitaatcom_qotd', 'tsitaatcom_qotd', 'n.nid = tsitaatcom_qotd.quote_id');
   $query->condition('tsitaatcom_qotd.quote_id', NULL, 'IS');
 
@@ -64,7 +72,6 @@ function _tsitaatcom_qotd_set_quote_of_the_day() {
 
   $quotes = tsitaatcomQuote::get_quotes(array('skip_drupal_not_found' => TRUE), $query);
 
-  print_r(count($quotes));
   if (count($quotes) === 0) {
     watchdog(
       'tsitaatcom_qotd',
@@ -90,9 +97,7 @@ function _tsitaatcom_qotd_set_quote_of_the_day() {
       ->execute();
   }
 
-  print_r($quotes);
-
-  return ;
+  return $quotes;
 }
 
 /**
@@ -119,7 +124,9 @@ function tsitaatcom_qotd_block_view($delta = '') {
 }
 
 /**
- * Block code to view tsitaatcom_qotd_block_delta
+ * Block code to view tsitaatcom_qotd_block_delta.
+ * @return array
+ *   Block data.
  */
 function tsitaatcom_qotd_block_delta_view() {
   $block = array('subject' => '', 'content' => '');
@@ -129,6 +136,12 @@ function tsitaatcom_qotd_block_delta_view() {
   return $block;
 }
 
+/**
+ * Get HTML for quote of the day.
+ * 
+ * @return string
+ *   Quote of the day
+ */
 function _tsitaatcom_qotd_get_latest_quote_of_the_day() {
   $out = '';
 
@@ -148,4 +161,81 @@ function _tsitaatcom_qotd_get_latest_quote_of_the_day() {
   }
 
   return $out;
+}
+
+/**
+ * Post quote to Facebook.
+ */
+function _tsitaatcom_qotd_post_qotd_to_facebook($quote) {
+  if (variable_get('tsitaatcom_qotd_fb_enabled', 0) === 1) {
+    require_once DRUPAL_ROOT . '/sites/all/libraries/facebook-php-sdk/src/facebook.php';
+
+    $config['appId'] = variable_get('tsitaatcom_qotd_fb_app_id');
+    $config['secret'] = variable_get('tsitaatcom_qotd_fb_secret');
+    // fileUpload is optional.
+    $config['fileUpload'] = FALSE;
+    $fb = new Facebook($config);
+
+    print_r($config);
+
+    $first_tag = explode(',', $quote['tags']);
+    $first_tag = str_replace('_', ' ', trim($first_tag[0]));
+
+    $message = trim($quote['quote_raw']) . "\n\n";
+    $message .= $quote['quote_author_name_rendered_only_name'] . "\n";
+    $message .= 'www.tsitaat.com/' . $quote['quote_nid'];
+
+    $params_fb = array(
+      'access_token' => variable_get('tsitaatcom_qotd_fb_token'),
+      'message' => $message,
+      'caption' => ' ',
+    );
+
+    // @todo: photo could be added with this:
+    // $params_fb['picture'] = 'http://www.tsitaat.com/cache/images/foo.jpg;
+
+    try {
+      $ret = $fb->api('/' . variable_get('tsitaatcom_qotd_fb_wall') . '/feed', 'POST', $params_fb);
+      echo 'Successfully posted to Facebook Personal Profile';
+    }
+    catch (Exception $e) {
+      echo $e->getMessage();
+    }
+  }
+}
+
+/**
+ * Shorten Twitter message so it could be sent, also add 3 dots to the end.
+ */
+function _tsitaatcom_qotd_shorten_twitter_message($message, $url) {
+  $out = $message . ' ' . $url;
+  while (drupal_strlen($out) > 136) {
+    $message = drupal_substr($message, 0, -1);
+    $out = $message . '... ' . $url;
+  }
+  return $out;
+}
+
+/**
+ * Post quote to Twitter.
+ */
+function _tsitaatcom_qotd_post_qotd_to_twitter($quote) {
+  if (variable_get('tsitaatcom_qotd_twitter_enabled', 0) === 1) {
+    require_once DRUPAL_ROOT . '/sites/all/libraries/codebird-php/src/codebird.php';
+
+    \Codebird\Codebird::setConsumerKey(variable_get('tsitaatcom_qotd_twitter_consumer_key'), variable_get('tsitaatcom_qotd_twitter_consumer_secret'));
+    $cb = \Codebird\Codebird::getInstance();
+    $cb->setToken(variable_get('tsitaatcom_qotd_twitter_access_token'), variable_get('tsitaatcom_qotd_twitter_access_token_secret'));
+
+    $url = 'www.tsitaat.com/' . $quote['quote_nid'];
+    $params_tw = array(
+      'status' => _tsitaatcom_qotd_shorten_twitter_message($quote['quote_raw'], $url),
+    );
+
+    // @todo: image could be uploaded with:
+    // $params_tw['media[]'] = '/var/www/tsitaat/__files/foo.jpg';
+
+    $reply = $cb->statuses_update($params_tw);
+    print_r($reply);
+  }
 }
