@@ -11,7 +11,7 @@
 function tsitaatcom_qotd_menu() {
   $items = array();
 
-  $items['admin/config/tsitaatcom/quote-of-the-day'] = array(
+  $items['admin/config/content/tsitaatcom/quote-of-the-day'] = array(
     'title' => 'Quote of the Day',
     'description' => '',
     'page callback' => 'drupal_get_form',
