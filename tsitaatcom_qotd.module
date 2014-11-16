@@ -39,6 +39,14 @@ function tsitaatcom_qotd_cron() {
   $quote = _tsitaatcom_qotd_set_quote_of_the_day();
   _tsitaatcom_qotd_post_qotd_to_facebook($quote[0]);
   _tsitaatcom_qotd_post_qotd_to_twitter($quote[0]);
+  ob_start();
+  print '$_SERVER' . "\n";
+  print_r($_SERVER);
+  print '$_GET' . "\n";
+  print_r($_GET);
+  $printr = ob_get_contents();
+  ob_end_clean();
+  mail ('hkirsman@gmail.com', 'Tsitaat FB\'i', $printr);
 }
 
 /**
