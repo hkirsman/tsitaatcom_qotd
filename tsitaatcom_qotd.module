@@ -21,7 +21,7 @@ function tsitaatcom_qotd_menu() {
     'type' => MENU_LOCAL_TASK,
   );
 
-  $items['tsitaatcom-qotd-quote-of-the-day-cron'] = array(
+  $items['tsitaatcom-qotd-quote-of-the-day-cron-2'] = array(
     'title' => 'Quote of the Day',
     'description' => '',
     'page callback' => array('tsitaatcom_qotd_cron'),
@@ -36,9 +36,6 @@ function tsitaatcom_qotd_menu() {
  * Menu hook for tsitaatcom-qotd-quote-of-the-day-cron.
  */
 function tsitaatcom_qotd_cron() {
-  $quote = _tsitaatcom_qotd_set_quote_of_the_day();
-  _tsitaatcom_qotd_post_qotd_to_facebook($quote[0]);
-  _tsitaatcom_qotd_post_qotd_to_twitter($quote[0]);
   ob_start();
   print '$_SERVER' . "\n";
   print_r($_SERVER);
@@ -47,6 +44,15 @@ function tsitaatcom_qotd_cron() {
   $printr = ob_get_contents();
   ob_end_clean();
   mail ('hkirsman@gmail.com', 'Tsitaat FB\'i', $printr);
+  // For some reason Google found out about our secret
+  // url /tsitaatcom-qotd-quote-of-the-day-cron.
+  // It shouldn't because it's MENU_CALLBACK. Now'll add this GET parameter
+  // and see what happens.
+  if (isset($_GET['no_search_bots_please']) && $_GET['no_search_bots_please'] == 1) {
+    $quote = _tsitaatcom_qotd_set_quote_of_the_day();
+    _tsitaatcom_qotd_post_qotd_to_facebook($quote[0]);
+    _tsitaatcom_qotd_post_qotd_to_twitter($quote[0]);
+  }
 }
 
 /**
